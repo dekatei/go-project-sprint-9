@@ -33,12 +33,7 @@ func Generator(ctx context.Context, ch chan<- int64, fn func(int64)) {
 // Worker читает число из канала in и пишет его в канал out.
 func Worker(in <-chan int64, out chan<- int64) {
 	defer close(out)
-	/*for x := range <-in { //почему так не работает?
-		out <- x
-		time.Sleep(time.Millisecond)
-	}*/
-	select {
-	case x := <-in:
+	for x := range in {
 		out <- x
 		time.Sleep(time.Millisecond)
 	}
@@ -82,12 +77,7 @@ func main() {
 		wg.Add(1)
 		go func(in <-chan int64, i int64) { // вообще не поняла, что произошло. но вроде работает. Просто написала код по ТЗ аооаоааоаоао
 			defer wg.Done()
-			/*for x := range <-in { //это тоже не сработало
-				chOut <- x
-				amounts[i]++
-			}*/
-			select {
-			case x := <-in:
+			for x := range in { //это тоже не сработало
 				chOut <- x
 				amounts[i]++
 			}
@@ -107,11 +97,8 @@ func main() {
 
 	// 5. Читаем числа из результирующего канала
 
-	for {
-		x, ok := <-chOut
-		if !ok {
-			break
-		}
+	for x := range chOut {
+
 		//atomic.AddInt64(&sum, x)
 		//atomic.AddInt64(&count, 1) //не нужно, тк нет гонки
 		sum += x
