@@ -32,16 +32,17 @@ func Generator(ctx context.Context, ch chan<- int64, fn func(int64)) {
 
 // Worker читает число из канала in и пишет его в канал out.
 func Worker(in <-chan int64, out chan<- int64) {
-	// 2. Функция Worker
 	defer close(out)
-	for {
-		x, ok := <-in
-		if !ok {
-			break
-		}
+	/*for x := range <-in { //почему так не работает?
 		out <- x
-
+		time.Sleep(time.Millisecond)
+	}*/
+	select {
+	case x := <-in:
+		out <- x
+		time.Sleep(time.Millisecond)
 	}
+
 }
 
 func main() {
@@ -81,11 +82,12 @@ func main() {
 		wg.Add(1)
 		go func(in <-chan int64, i int64) { // вообще не поняла, что произошло. но вроде работает. Просто написала код по ТЗ аооаоааоаоао
 			defer wg.Done()
-			for {
-				x, ok := <-in
-				if !ok {
-					break
-				}
+			/*for x := range <-in { //это тоже не сработало
+				chOut <- x
+				amounts[i]++
+			}*/
+			select {
+			case x := <-in:
 				chOut <- x
 				amounts[i]++
 			}
@@ -100,29 +102,32 @@ func main() {
 		close(chOut)
 	}()
 
-	var count atomic.Int64 // количество чисел результирующего канала
-	var sum atomic.Int64   // сумма чисел результирующего канала
+	var count int64 // количество чисел результирующего канала
+	var sum int64   // сумма чисел результирующего канала
 
 	// 5. Читаем числа из результирующего канала
+
 	for {
 		x, ok := <-chOut
 		if !ok {
 			break
 		}
-		sum.Add(x)
-		count.Add(1)
+		//atomic.AddInt64(&sum, x)
+		//atomic.AddInt64(&count, 1) //не нужно, тк нет гонки
+		sum += x
+		count += 1
 	}
 
-	fmt.Println("Количество чисел", inputCount.Load(), count.Load())
-	fmt.Println("Сумма чисел", inputSum.Load(), sum.Load())
+	fmt.Println("Количество чисел", inputCount.Load(), count)
+	fmt.Println("Сумма чисел", inputSum.Load(), sum)
 	fmt.Println("Разбивка по каналам", amounts)
 
 	// проверка результатов
-	if inputSum.Load() != sum.Load() {
-		log.Fatalf("Ошибка: суммы чисел не равны: %d != %d\n", inputSum.Load(), sum.Load())
+	if inputSum.Load() != sum {
+		log.Fatalf("Ошибка: суммы чисел не равны: %d != %d\n", inputSum.Load(), sum)
 	}
-	if inputCount.Load() != count.Load() {
-		log.Fatalf("Ошибка: количество чисел не равно: %d != %d\n", inputCount.Load(), count.Load())
+	if inputCount.Load() != count {
+		log.Fatalf("Ошибка: количество чисел не равно: %d != %d\n", inputCount.Load(), count)
 	}
 	for _, v := range amounts {
 		inputCount.Add(-v)
@@ -130,4 +135,5 @@ func main() {
 	if inputCount.Load() != 0 {
 		log.Fatalf("Ошибка: разделение чисел по каналам неверное\n")
 	}
+
 }
